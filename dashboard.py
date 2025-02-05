@@ -1,180 +1,142 @@
+# bike_sharing_dashboard.py
+import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import streamlit as st
 
-# function
-def create_perhour_df(df):
-    perhour_df = df.groupby(by="hour").agg({'count': ['count', 'mean']}).reset_index()
-    return perhour_df
-def create_perday_df(df):
-    perday_df = df.groupby(by="weekday").agg(count=("count", "mean")).reset_index()
-    order = [3, 1, 5, 6, 4, 0, 2]
-    perday_df = perday_df.reindex(order)
-    return perday_df
-def create_perweather_df(df):
-    perweather_df = df.groupby(by="weather").agg(count=("count", "mean")).reset_index()
-    return perweather_df
-def create_perseason_df(df):
-    perseason_df = df.groupby(by="season").agg(count=("count", "mean")).reset_index()
-    return perseason_df
-def create_peryear_df(df,the_year):
-    peryear_df = df.groupby(df['datetime'].dt.month).agg({'registered': 'sum'})
-    peryear_df = df[df['datetime'].dt.year == the_year]
-    peryear_df['datetime'] = pd.to_datetime(peryear_df['datetime'])
-    return peryear_df
-def create_perregis_df(df):
-    df['datetime'] = df['datetime'].dt.strftime('%B')
-    perregis_df = df.groupby(by="datetime").agg(count=("registered", "sum")).reset_index()
-    order = [4, 3, 7, 0, 8, 6, 5, 1, 11, 10, 9, 2]
-    perregis_df = perregis_df.reindex(order)
-    return perregis_df
+# Set page config FIRST
+st.set_page_config(page_title="Bike Sharing Analytics", layout="wide")
 
-# read data
-main_df = pd.read_csv("main_data.csv")
-for column in ["datetime"]: 
-    main_df[column] = pd.to_datetime(main_df[column])
-# create data
-the_year = 2011
-peryear_df_11 = create_peryear_df(main_df, the_year)
-perhour_df = create_perhour_df(peryear_df_11)
-perday_df = create_perday_df(peryear_df_11)
-perweather_df = create_perweather_df(peryear_df_11)
-perseason_df = create_perseason_df(peryear_df_11)
-perregis_df = create_perregis_df(peryear_df_11)
-color = ["#D3D3D3", "#D3D3D3", "#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
-color1 = ["#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
-color2 = ["#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
+# Load data
+@st.cache_data
+def load_data():
+    return pd.read_csv('day.csv', parse_dates=['dteday'])
 
+df = load_data()
 
-# header
-st.title('Bike Sharing Dashboard 🚲')
-# column
-st.subheader('Year')
-col1, col2 = st.columns(2)
+# Set up dashboard
+st.title("🚴♂️ Bike Sharing System Dashboard")
+st.markdown("Analyzing rental patterns and operational metrics")
+
+# Sidebar filters
+st.sidebar.header("Filters")
+year_filter = st.sidebar.multiselect('Select Years:', options=[0, 1], format_func=lambda x: "2011" if x == 0 else "2012")
+
+# Preprocess filtered data
+if year_filter:
+    df_filtered = df[df['yr'].isin(year_filter)]
+else:
+    df_filtered = df.copy()
+
+# Key Metrics
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    if st.button('2011'):
-        the_year = 2011
-        peryear_df_11 = create_peryear_df(main_df, the_year)
-        perhour_df = create_perhour_df(peryear_df_11)
-        perday_df = create_perday_df(peryear_df_11)
-        perweather_df = create_perweather_df(peryear_df_11)
-        perseason_df = create_perseason_df(peryear_df_11)
-        perregis_df = create_perregis_df(peryear_df_11)
-        color = ["#D3D3D3", "#D3D3D3", "#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
-        color1 = ["#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
-        color2 = ["#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
-        total_orders = perregis_df["count"].sum()
-        st.metric("Total Rented Bikes", value=total_orders)
+    st.metric("Total Rentals", f"{df_filtered['cnt'].sum():,}")
 with col2:
-    if st.button('2012'):
-        the_year = 2012
-        peryear_df_12 = create_peryear_df(main_df, the_year)
-        perhour_df = create_perhour_df(peryear_df_12)
-        perday_df = create_perday_df(peryear_df_12)
-        perweather_df = create_perweather_df(peryear_df_12)
-        perseason_df = create_perseason_df(peryear_df_12)
-        perregis_df = create_perregis_df(peryear_df_12)
-        color = ["#D3D3D3", "#D3D3D3", "#D3D3D3", "#D3D3D3", "#ff8819", "#D3D3D3", "#D3D3D3"]
-        color1 = ["#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
-        color2 = ["#ff8819", "#D3D3D3", "#D3D3D3", "#D3D3D3"]
-        total_orders = perregis_df["count"].sum()
-        st.metric("Total Rented Bikes", value=total_orders)
+    st.metric("Avg Daily Rentals", f"{df_filtered['cnt'].mean():.0f}")
+with col3:
+    st.metric("Peak Daily Rentals", df_filtered['cnt'].max())
+with col4:
+    st.metric("Registered Users Ratio", f"{(df_filtered['registered'].sum()/df_filtered['cnt'].sum())*100:.1f}%")
 
+# Main tabs
+tab1, tab2, tab3, tab4 = st.tabs(["📈 Trends", "🌦 Weather Impact", "👥 User Analysis", "📊 Data"])
 
-with st.sidebar:
-    choices = st.selectbox(
-        label="Average Rented Bikes",
-        options=('Select an option', '🕓 per-Hour', '📅 per-Day', '🌤️ per-Weather', '🍁 per-Season')
+with tab1:
+    # Temporal trends
+    st.subheader("Temporal Patterns")
+    
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sns.lineplot(data=df_filtered, x='dteday', y='cnt', ax=ax)
+    ax.set_title("Daily Rentals Over Time")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Total Rentals")
+    st.pyplot(fig)
+    
+    # Monthly patterns
+    df_filtered['month'] = df_filtered['dteday'].dt.month_name()
+    monthly_data = df_filtered.groupby(['yr', 'month'])['cnt'].sum().reset_index()
+    
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sns.barplot(data=monthly_data, x='month', y='cnt', hue='yr', ax=ax,
+                order=['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'])
+    ax.set_title("Monthly Rental Patterns")
+    ax.set_xlabel("Month")
+    ax.set_ylabel("Total Rentals")
+    ax.tick_params(axis='x', rotation=45)
+    st.pyplot(fig)
+
+with tab2:
+    # Weather impact
+    st.subheader("Weather Impact Analysis")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.boxplot(data=df_filtered, x='weathersit', y='cnt', ax=ax)
+        ax.set_title("Rentals by Weather Condition")
+        ax.set_xlabel("Weather Situation (1:Best, 3:Worst)")
+        ax.set_ylabel("Daily Rentals")
+        st.pyplot(fig)
+    
+    with col2:
+        # Correlation matrix
+        corr = df_filtered[['temp', 'atemp', 'hum', 'windspeed', 'cnt']].corr()
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.heatmap(corr[['cnt']].sort_values(by='cnt', ascending=False), 
+                    annot=True, cmap='coolwarm', ax=ax)
+        ax.set_title("Feature Correlation with Rentals")
+        st.pyplot(fig)
+
+with tab3:
+    # User analysis
+    st.subheader("User Behavior Patterns")
+    
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sns.lineplot(data=df_filtered, x='dteday', y='registered', label='Registered', ax=ax)
+    sns.lineplot(data=df_filtered, x='dteday', y='casual', label='Casual', ax=ax)
+    ax.set_title("User Type Trends Over Time")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Number of Users")
+    st.pyplot(fig)
+    
+    # Special days comparison
+    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+    sns.barplot(data=df_filtered, x='holiday', y='cnt', ax=ax[0])
+    ax[0].set_title("Holiday vs Regular Days")
+    ax[0].set_xticklabels(['Regular', 'Holiday'])
+    
+    sns.barplot(data=df_filtered, x='workingday', y='cnt', ax=ax[1])
+    ax[1].set_title("Working Day vs Non-Working")
+    ax[1].set_xticklabels(['Non-Working', 'Working'])
+    st.pyplot(fig)
+
+with tab4:
+    # Raw data
+    st.subheader("Dataset Preview")
+    st.dataframe(df_filtered.head(100))
+    
+    # Data summary
+    if st.checkbox("Show Data Summary"):
+        st.write(df_filtered.describe())
+    
+    # Download button
+    csv = df_filtered.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="Download Filtered Data",
+        data=csv,
+        file_name="filtered_bike_data.csv",
+        mime="text/csv"
     )
-    if choices=='🕓 per-Hour':
-        max_hour = perhour_df.loc[perhour_df['count'].idxmax(), 'hour']
-        st.write('The most number of Rented Bikes is at', max_hour[17])
-    elif choices=='📅 per-Day':
-        if the_year==2012:
-            st.write('The most number of Rented Bikes is on Thursday')
-        else:
-            st.write('The most number of Rented Bikes is on Tuesday')
-    elif choices=='🌤️ per-Weather':
-        max_weather = perweather_df.loc[perweather_df['count'].idxmax(), 'weather']
-        st.write('The most number of Rented Bikes is during', max_weather, 'weather')
-    elif choices=='🍁 per-Season':
-        max_season = perseason_df.loc[perseason_df['count'].idxmax(), 'season']
-        st.write('The most number of Rented Bikes is during', max_season, 'season')
 
-
-st.header('Average Rented Bikes')
-st.subheader('🕓 per-Hour')
-fig, ax = plt.subplots(figsize=(30, 12))
-ax.plot(    
-    perhour_df["hour"],
-    perhour_df["count"]["mean"],
-    marker='o', 
-    linewidth=3,
-    color="#ff8819"
-)
-ax.tick_params(axis='y', labelsize=20)
-ax.tick_params(axis='x', labelsize=15)
-st.pyplot(fig)
-
-st.subheader('📅 per-Day')
-fig, ax = plt.subplots(figsize=(25, 10))
-sns.barplot(
-    y="count", 
-    x="weekday",
-    data=perday_df,
-    palette=color,
-    ax=ax
-)
-ax.set_ylabel(None)
-ax.set_xlabel(None)
-ax.tick_params(axis='x', labelsize=35)
-ax.tick_params(axis='y', labelsize=30)
-st.pyplot(fig)
-
-st.subheader('🌤️ per-Weather')
-fig, ax = plt.subplots(figsize=(25, 10))
-sns.barplot(
-    y="count", 
-    x="weather",
-    data=perweather_df,
-    palette=color1,
-    ax=ax
-)
-ax.set_ylabel(None)
-ax.set_xlabel(None)
-ax.tick_params(axis='x', labelsize=35)
-ax.tick_params(axis='y', labelsize=30)
-st.pyplot(fig)
-
-st.subheader('🍁 per-Season')
-fig, ax = plt.subplots(figsize=(25, 10))
-sns.barplot(
-    y="count", 
-    x="season",
-    data=perseason_df,
-    palette=color2,
-    ax=ax
-)
-ax.set_ylabel(None)
-ax.set_xlabel(None)
-ax.tick_params(axis='x', labelsize=35)
-ax.tick_params(axis='y', labelsize=30)
-st.pyplot(fig)
-
-st.header('Growth of Rented Bikes')
-st.subheader('📝 per-Registered User')
-fig, ax = plt.subplots(figsize=(25, 10))
-ax.plot(
-    perregis_df["datetime"],
-    perregis_df["count"],
-    marker='o', 
-    linewidth=2,
-    color="#ff8819"
-)
-ax.tick_params(axis='y', labelsize=20)
-ax.tick_params(axis='x', labelsize=15)
-st.pyplot(fig)
-
-
-st.caption('Made with ❤️ | © 2024 by Nabila')
+# Recommendations section
+st.markdown("---")
+st.subheader("Operational Recommendations")
+st.markdown("""
+1. **Inventory Management**: Increase bike availability during fall months (Sep-Oct)
+2. **Weather Preparedness**: Implement surge pricing during optimal weather days
+3. **User Engagement**: Target registered users with loyalty programs in winter
+4. **Maintenance Scheduling**: Plan maintenance during low-rental periods (Jan-Feb)
+5. **Staff Allocation**: Increase staff during working days and peak seasons
+""")
